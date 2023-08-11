@@ -199,6 +199,7 @@ def log_view(
     if args.render_stride != 1:
         gt_img = gt_img[::render_stride, ::render_stride]
         average_im = average_im[::render_stride, ::render_stride]
+        ray_batch['labels'] = gt_labels[::render_stride, ::render_stride].reshape(-1, gt_labels.shape[-1])
 
     rgb_gt = img_HWC2CHW(gt_img)
     average_im = img_HWC2CHW(average_im)
