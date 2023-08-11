@@ -1,5 +1,5 @@
 ### INPUT
-expname = gnt_full
+expname = gnt_scannet_0811_selected_inds
 rootdir = ./
 render_stride = 2
 distributed = False

@@ -63,5 +63,4 @@ class NeRFSemSegFPNHead(nn.Module):
                 x = x + self.scale_heads[i](chunk)
 
         out = self.predictor(x)
-        # out = F.interpolate(out, scale_factor = 2, mode='bilinear', align_corners=True)
         return out 
