@@ -1,4 +1,4 @@
-for d in scans/* ; 
+for d in data/scans/* ; 
 do     
     scene=$(echo $d | cut -d'/' -f2)
     echo "Processing scene: $scene"
