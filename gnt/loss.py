@@ -81,12 +81,16 @@ class SemanticLoss(Loss):
     def compute_semantic_loss(self, label_pr, label_gt, num_classes, selected_inds):
         label_pr = label_pr.reshape(-1, num_classes)
         label_gt = label_gt.reshape(-1).long()
+
         valid_mask = (label_gt != self.ignore_label)
-        label_pr = label_pr[valid_mask]
-        label_gt = label_gt[valid_mask]
-        mean_sem_loss = nn.functional.cross_entropy(label_pr, label_gt, reduction='mean').unsqueeze(0)
-        agg_label_pr = label_pr[selected_inds]
-        agg_label_gt = label_gt[selected_inds]
+        sem_label_pr = label_pr[valid_mask]
+        sem_label_gt = label_gt[valid_mask]
+        mean_sem_loss = nn.functional.cross_entropy(sem_label_pr, sem_label_gt, reduction='mean').unsqueeze(0)
+
+        agg_valid_mask = torch.full_like(valid_mask, False)
+        agg_valid_mask[selected_inds] = True
+        agg_label_pr = label_pr[agg_valid_mask]
+        agg_label_gt = label_gt[agg_valid_mask]
         mean_agg_loss = nn.functional.cross_entropy(agg_label_pr, agg_label_gt, reduction='mean').unsqueeze(0)
 
         return mean_sem_loss, mean_agg_loss
