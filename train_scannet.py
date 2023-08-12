@@ -192,7 +192,10 @@ def train(args):
             )
 
             selected_inds = ray_batch["selected_inds"]
-            corase_sem_out = model.sem_seg_head(que_deep_semantics, ret['outputs_coarse']['feats_out'], selected_inds)
+            ratio = 240 * 320 // (que_deep_semantics.shape[-2] * que_deep_semantics.shape[-1])
+            re_selected_inds = torch.tensor([select_ind // ratio for select_ind in selected_inds])
+            
+            corase_sem_out = model.sem_seg_head(que_deep_semantics, ret['outputs_coarse']['feats_out'], re_selected_inds)
             del ret['outputs_coarse']['feats_out'], ret['outputs_fine']['feats_out']
             # corase_sem_out = model.sem_seg_head(que_deep_semantics, None, None)
             corase_sem_out = F.interpolate(corase_sem_out, scale_factor = 2, mode='bilinear', align_corners=True)
@@ -203,8 +206,8 @@ def train(args):
 
             # compute loss
             render_loss = render_criterion(ret, ray_batch)
-            semantic_loss = semantic_criterion(ret, ray_batch, step=global_step)
-            loss = semantic_loss['train/semantic-loss'] + render_loss['train/rgb-loss']
+            semantic_loss = semantic_criterion(ret, ray_batch, re_selected_inds)
+            loss = semantic_loss['train/semantic-loss'] + semantic_loss['train/semantic-agg-loss'] + render_loss['train/rgb-loss']
 
             model.optimizer.zero_grad()
             loss.backward()
@@ -213,6 +216,7 @@ def train(args):
 
             scalars_to_log["loss"] = loss.item()
             scalars_to_log["train/semantic-loss"] = semantic_loss['train/semantic-loss'].item()
+            scalars_to_log["train/semantic-agg-loss"] = semantic_loss['train/semantic-agg-loss'].item()
             scalars_to_log["train/rgb-loss"] = render_loss['train/rgb-loss'].item()
             scalars_to_log["lr"] = model.scheduler.get_last_lr()[0]
             # end of core optimization loop

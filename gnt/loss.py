@@ -53,6 +53,7 @@ class SemanticLoss(Loss):
         self.num_classes = args.num_classes + 1 # for ignore label
         self.color_map = torch.tensor(args.semantic_color_map, dtype=torch.uint8)
         self.expname = args.expname
+        self.agg_loss_scale = 5
 
     def plot_semantic_results(self, data_pred, data_gt, step, val_name=None, vis=False):
         h, w = data_pred['sems'].shape[1:3]
@@ -77,35 +78,36 @@ class SemanticLoss(Loss):
             imsave(f'out/{model_name}/{val_name}/{step}.png', concat_images_list(*imgs))
         return imgs
     
-    def compute_semantic_loss(self, label_pr, label_gt, num_classes):
+    def compute_semantic_loss(self, label_pr, label_gt, num_classes, selected_inds):
         label_pr = label_pr.reshape(-1, num_classes)
         label_gt = label_gt.reshape(-1).long()
         valid_mask = (label_gt != self.ignore_label)
         label_pr = label_pr[valid_mask]
         label_gt = label_gt[valid_mask]
-        return nn.functional.cross_entropy(label_pr, label_gt, reduction='mean').unsqueeze(0)
+        mean_sem_loss = nn.functional.cross_entropy(label_pr, label_gt, reduction='mean').unsqueeze(0)
+        agg_label_pr = label_pr[selected_inds]
+        agg_label_gt = label_gt[selected_inds]
+        mean_agg_loss = nn.functional.cross_entropy(agg_label_pr, agg_label_gt, reduction='mean').unsqueeze(0)
+
+        return mean_sem_loss, mean_agg_loss
     
-    def __call__(self, data_pred, data_gt, step, **kwargs):
+    def __call__(self, data_pred, data_gt, selected_inds, **kwargs):
         num_classes = data_pred['outputs_coarse']['sems'].shape[-1]
         
         pixel_label_gt = data_gt['labels']
         pixel_label_nr = data_pred['outputs_coarse']['sems']
-        coarse_loss = self.compute_semantic_loss(pixel_label_nr, pixel_label_gt, num_classes)
+        coarse_loss, coarse_agg_loss = self.compute_semantic_loss(pixel_label_nr, pixel_label_gt, num_classes, selected_inds)
         
         if 'outputs_fine' in data_pred:
             pixel_label_nr_fine = data_pred['outputs_fine']['sems']
-            fine_loss = self.compute_semantic_loss(pixel_label_nr_fine, pixel_label_gt, num_classes)
+            fine_loss, fine_agg_loss = self.compute_semantic_loss(pixel_label_nr_fine, pixel_label_gt, num_classes, selected_inds)
         else:
             fine_loss = torch.zeros_like(coarse_loss)
         
         loss = (coarse_loss + fine_loss) * self.semantic_loss_scale
+        agg_loss = (coarse_agg_loss + fine_agg_loss) * self.semantic_loss_scale * self.agg_loss_scale
         
-        # if 'pred_labels' in data_pred:
-        #     ref_labels_pr = data_pred['pred_labels'].permute(0, 2, 3, 1)
-        #     ref_labels_gt = data_gt['ref_imgs_info']['labels'].permute(0, 2, 3, 1)
-        #     ref_loss = self.compute_semantic_loss(ref_labels_pr, ref_labels_gt, num_classes)
-        #     loss += ref_loss * self.semantic_loss_scale
-        return {'train/semantic-loss': loss}
+        return {'train/semantic-loss': loss, 'train/semantic-agg-loss': agg_loss}
 
 class DepthLoss(nn.Module):
 
