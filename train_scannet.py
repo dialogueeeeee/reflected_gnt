@@ -259,7 +259,7 @@ def train(args):
                     fpath = os.path.join(out_folder, "model_{:06d}.pth".format(global_step))
                     model.save_model(fpath)
 
-                if (global_step+1) % args.save_interval == 0:
+                if (global_step+1) % 2:
                     print("Evaluating...")
                     all_psnr_scores,all_lpips_scores,all_ssim_scores, all_iou_scores = [],[],[],[]
                     for val_scene, val_name in zip(val_set_lists, val_set_names):
@@ -341,7 +341,7 @@ def log_view(
 
         ref_coarse_feats, fine_feats, ref_deep_semantics = model.feature_net(ray_batch["src_rgbs"].squeeze(0).permute(0, 3, 1, 2))
         ref_deep_semantics = model.feature_fpn(ref_deep_semantics)
-
+        device = ref_deep_semantics.device
         _, _, que_deep_semantics = model.feature_net(gt_img.unsqueeze(0).permute(0, 3, 1, 2).to(ref_coarse_feats.device))
         que_deep_semantics = model.feature_fpn(que_deep_semantics)
         
@@ -362,12 +362,12 @@ def log_view(
             ret_alpha=ret_alpha,
             single_net=single_net,
         )
-        corase_sem_out = model.sem_seg_head(ret['outputs_coarse']['feats_out'].permute(2,0,1).unsqueeze(0), None, None)
+        corase_sem_out = model.sem_seg_head(ret['outputs_coarse']['feats_out'].permute(2,0,1).unsqueeze(0).to(device), None, None)
         corase_sem_out = F.interpolate(corase_sem_out, scale_factor = 2, mode='bilinear', align_corners=True).permute(0,2,3,1)
         ret['outputs_coarse']['sems'] = corase_sem_out
 
-        fine_sem_out = model.sem_seg_head(ret['outputs_fine']['feats_out'].permute(2,0,1).unsqueeze(0), None, None)
-        fine_sem_out = F.interpolate(corase_sem_out, scale_factor = 2, mode='bilinear', align_corners=True).permute(0,2,3,1)
+        fine_sem_out = model.sem_seg_head(ret['outputs_fine']['feats_out'].permute(2,0,1).unsqueeze(0).to(device), None, None)
+        fine_sem_out = F.interpolate(fine_sem_out, scale_factor = 2, mode='bilinear', align_corners=True).permute(0,2,3,1)
         ret['outputs_fine']['sems'] = fine_sem_out
 
     average_im = ray_sampler.src_rgbs.cpu().mean(dim=(0, 1))
