@@ -39,4 +39,4 @@ semantic_model = fpn
 
 
 #### AUX LOSS
-aux_loss = False
+select_inds_loss = True

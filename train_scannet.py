@@ -207,7 +207,7 @@ def train(args):
             # compute loss
             render_loss = render_criterion(ret, ray_batch)
             semantic_loss = semantic_criterion(ret, ray_batch, re_selected_inds)
-            if args.aux_loss is True:
+            if args.select_inds_loss is True:
                 loss = semantic_loss['train/semantic-loss'] + semantic_loss['train/semantic-agg-loss'] + render_loss['train/rgb-loss']
             else:
                 loss = semantic_loss['train/semantic-loss'] + render_loss['train/rgb-loss']
@@ -219,7 +219,7 @@ def train(args):
 
             scalars_to_log["loss"] = loss.item()
             scalars_to_log["train/semantic-loss"] = semantic_loss['train/semantic-loss'].item()
-            if args.aux_loss is True:
+            if args.select_inds_loss is True:
                 scalars_to_log["train/semantic-agg-loss"] = semantic_loss['train/semantic-agg-loss'].item()
             scalars_to_log["train/rgb-loss"] = render_loss['train/rgb-loss'].item()
             scalars_to_log["lr"] = model.scheduler.get_last_lr()[0]

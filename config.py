@@ -220,5 +220,5 @@ def config_parser():
 
     parser.add_argument('--model', type=str, default='gnt')
 
-    parser.add_argument('--aux_loss', type=bool, default=False)
+    parser.add_argument('--select_inds_loss', type=bool, default=False)
     return parser

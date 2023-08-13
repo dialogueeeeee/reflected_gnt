@@ -37,6 +37,5 @@ save_interval = 20000
 save_feature = True
 semantic_model = fpn
 
-
 #### AUX LOSS
-aux_loss = False
+# select_inds_loss = False
