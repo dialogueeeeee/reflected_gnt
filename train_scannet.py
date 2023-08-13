@@ -207,7 +207,10 @@ def train(args):
             # compute loss
             render_loss = render_criterion(ret, ray_batch)
             semantic_loss = semantic_criterion(ret, ray_batch, re_selected_inds)
-            loss = semantic_loss['train/semantic-loss'] + semantic_loss['train/semantic-agg-loss'] + render_loss['train/rgb-loss']
+            if args.aux_loss is True:
+                loss = semantic_loss['train/semantic-loss'] + semantic_loss['train/semantic-agg-loss'] + render_loss['train/rgb-loss']
+            else:
+                loss = semantic_loss['train/semantic-loss'] + render_loss['train/rgb-loss']
 
             model.optimizer.zero_grad()
             loss.backward()
@@ -216,7 +219,8 @@ def train(args):
 
             scalars_to_log["loss"] = loss.item()
             scalars_to_log["train/semantic-loss"] = semantic_loss['train/semantic-loss'].item()
-            scalars_to_log["train/semantic-agg-loss"] = semantic_loss['train/semantic-agg-loss'].item()
+            if args.aux_loss is True:
+                scalars_to_log["train/semantic-agg-loss"] = semantic_loss['train/semantic-agg-loss'].item()
             scalars_to_log["train/rgb-loss"] = render_loss['train/rgb-loss'].item()
             scalars_to_log["lr"] = model.scheduler.get_last_lr()[0]
             # end of core optimization loop
@@ -358,10 +362,13 @@ def log_view(
             ret_alpha=ret_alpha,
             single_net=single_net,
         )
-        
-        ret['outputs_coarse']['sems'] = model.sem_seg_head(ret['outputs_coarse']['feats_out'].permute(2,0,1).unsqueeze(0), None, None).permute(0,2,3,1)
-        ret['outputs_fine']['sems'] = model.sem_seg_head(ret['outputs_coarse']['feats_out'].permute(2,0,1).unsqueeze(0), None, None).permute(0,2,3,1)
+        corase_sem_out = model.sem_seg_head(ret['outputs_coarse']['feats_out'].permute(2,0,1).unsqueeze(0), None, None)
+        corase_sem_out = F.interpolate(corase_sem_out, scale_factor = 2, mode='bilinear', align_corners=True).permute(0,2,3,1)
+        ret['outputs_coarse']['sems'] = corase_sem_out
 
+        fine_sem_out = model.sem_seg_head(ret['outputs_fine']['feats_out'].permute(2,0,1).unsqueeze(0), None, None)
+        fine_sem_out = F.interpolate(corase_sem_out, scale_factor = 2, mode='bilinear', align_corners=True).permute(0,2,3,1)
+        ret['outputs_fine']['sems'] = fine_sem_out
 
     average_im = ray_sampler.src_rgbs.cpu().mean(dim=(0, 1))
     if args.render_stride != 1:
